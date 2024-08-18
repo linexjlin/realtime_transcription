@@ -176,6 +176,7 @@ def main():
     CHUNK = 256
     num_samples = 256
 
+    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,)
     data = []
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT,
@@ -183,8 +184,6 @@ def main():
                     rate=SAMPLE_RATE,
                     input=True,
                     frames_per_buffer=CHUNK)
-    
-    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,)
     
     print("Started Recording")
     for i in range(0, 102400):
