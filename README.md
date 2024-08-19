@@ -4,7 +4,7 @@ An example of using API like OpenAI `v1/audio/transcriptions` for realtime trans
 
 I have 2 backends tested [siliconflow](https://cloud.siliconflow.cn?referrer=clxhh3xlg0001rx6r4ywpk4m4) and [groq](https://groq.com). 
 
-You can found there API reference from below links:
+You can found their API references from below links:
 
 - [siliconflow](https://docs.siliconflow.cn/reference/createaudiotranscriptions-1?referrer=clxhh3xlg0001rx6r4ywpk4m4)
 
@@ -28,7 +28,7 @@ class VADSegmentRealTime:
 
 - user_seg_interval: minimum interval between segments that will be returned to the user
 
-- mode: "precise" or "fast", precise mode is more accurate but slower and consumer more tokens, fast mode is faster but less accurate. "precise" recommend.
+- mode: "precise" or "saving", precise mode is more accurate but slower and consumer more tokens, saving mode is faster but less accurate. "precise" is recommended.
 
 ## Credits
 
