@@ -10,7 +10,7 @@ import time
 import wave
 import io
 import struct
-from transcriptions import send_audio_to_api,groq_send_audio_to_api
+from transcriptions import transcription
 
 class VADSegmentRealTime:
     def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8):
@@ -76,7 +76,7 @@ class VADSegmentRealTime:
         # Convert bytes to int16 arrays
         int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in self.segment_voice] # whole big segment
         wav_data = self.pcm_to_wav(int16_chunks)
-        ret = send_audio_to_api(wav_data)
+        ret = transcription(wav_data)
         seg["text"] = ret["text"]
         self.segment_text = ret["text"]
         print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
