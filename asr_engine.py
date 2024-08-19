@@ -13,14 +13,17 @@ import struct
 from transcriptions import send_audio_to_api,groq_send_audio_to_api
 
 class VADSegmentRealTime:
-    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 1.1):
+    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8):
         self.model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                            model='silero_vad',
                                            force_reload=False)
         self.voice_confidence = voice_confidence
         self.sample_rate = sample_rate
         self.CHANNELS = 1
-        self.segments = []
+        self.segments = [] # can be remove in future
+        self.segment_voice = []
+        self.segment_text =""
+        self.segment_duration = 0
         self.chunk = [] #one chunk data
         self.chunks = [] # chunks of audio
         self.confidences = []
@@ -67,22 +70,27 @@ class VADSegmentRealTime:
 
     def parse_segment_thread(self, seg):
         pcm_chunks = seg["voice_chunks"]
+        self.segment_voice.extend(pcm_chunks)
+        self.segment_duration = self.segment_duration + seg["duration"]
+
         # Convert bytes to int16 arrays
-        int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in pcm_chunks]
+        int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in self.segment_voice] # whole big segment
         wav_data = self.pcm_to_wav(int16_chunks)
         ret = send_audio_to_api(wav_data)
         seg["text"] = ret["text"]
-        print(ret)
-        with open(f"rec_{seg['pos']['start_pos']}-{seg['pos']['end_pos']}.wav", 'wb') as f:
-            wav_data.seek(0)
-            f.write(wav_data.read())
+        self.segment_text = ret["text"]
+        print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
+        # print(ret)
+        # with open(f"rec_{seg['pos']['start_pos']}-{seg['pos']['end_pos']}.wav", 'wb') as f:
+        #     wav_data.seek(0)
+        #     f.write(wav_data.read())
         self.segments.append(seg)
         print("seg added")
 
     def add_new_segment(self):
         chunks = self.chunks.copy()
-        pos =  {"start_pos": self.events[0]["idx"], "end_pos": self.v_idx,"duration":(self.v_idx-self.events[0]["idx"])*32/1000}
-        seg = {"pos":pos, "voice_chunks":chunks, "text":"1"}
+        pos =  {"start_pos": self.events[0]["idx"], "end_pos": self.v_idx}
+        seg = {"pos":pos, "duration":(self.v_idx-self.events[0]["idx"])*32/1000,"voice_chunks":chunks, "text":"1"}
         
         self.chunks.clear()
         self.events.clear()
@@ -139,12 +147,13 @@ class VADSegmentRealTime:
             while self.segments_cnt > len(self.segments):
                 time.sleep(0.05)
             print(f"talk finish, segments count:{len(self.segments)}")
-
-            combine_texts = " ".join(seg["text"] for seg in self.segments)
-            print("combined:", combine_texts)
+            #combine_texts = " ".join(seg["text"] for seg in self.segments)
+            print(f"segment text:{self.segment_text}")
 
             self.segments.clear()
+            self.segment_voice.clear()
             self.segments_cnt = 0
+            self.segment_duration = 0
             self.continue_silent_cnt = 0
 
     def stream_add(self, audio_frame):
@@ -202,62 +211,3 @@ def main():
     wf.close()
 
 main()
-
-"""
-
-model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
-                              model='silero_vad',
-                              force_reload=False)
-
-# Provided by Alexander Veysov
-def int2float(sound):
-    abs_max = np.abs(sound).max()
-    sound = sound.astype('float32')
-    if abs_max > 0:
-        sound *= 1/32768
-    sound = sound.squeeze()  # depends on the use case
-    return sound
-
-
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-SAMPLE_RATE = 8000
-CHUNK = int(SAMPLE_RATE / 10)
-CHUNK = 256
-num_samples = 256
-
-audio = pyaudio.PyAudio()
-
-stream = audio.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=SAMPLE_RATE,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-data = []
-voiced_confidences = []
-
-print("Started Recording")
-for i in range(0, 1024):
-    
-    audio_chunk = stream.read(num_samples)
-    #print(i,len(audio_chunk))
-    
-    # in case you want to save the audio later
-    data.append(audio_chunk)
-    
-    audio_int16 = np.frombuffer(audio_chunk, np.int16);
-
-    audio_float32 = int2float(audio_int16)
-    
-    # get the confidences and add them to the list to plot them later
-    new_confidence = model(torch.from_numpy(audio_float32), 8000).item()
-    print(i,new_confidence)
-    voiced_confidences.append(new_confidence)
-    
-print("Stopped the recording")
-
-# plot the confidences for the speech
-plt.figure(figsize=(20,6))
-plt.plot(voiced_confidences)
-plt.show()
-"""
