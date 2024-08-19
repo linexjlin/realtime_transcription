@@ -1,6 +1,6 @@
 # Realtime transcription
 
-An example of using API like OpenAI `v1/audio/transcriptions` for realtime transcription or ASR. 
+An ASR engine by using free transcription API style like OpenAI's `v1/audio/transcriptions`. 
 
 I have 2 backends tested [siliconflow](https://cloud.siliconflow.cn?referrer=clxhh3xlg0001rx6r4ywpk4m4) and [groq](https://groq.com). 
 
