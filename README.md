@@ -20,11 +20,15 @@ class VADSegmentRealTime:
     def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8, mode="precise"):
 ...
 ```
-sample_rate: sample rate of your audio input
-voice_confidence: confidence threshold for voice activity detection (VAD)
-system_seg_inerval: minimum interval between segments detected by the system
-user_seg_interval: minimum interval between segments that will be returned to the user
-mode: "precise" or "fast", precise mode is more accurate but slower and consumer more tokens, fast mode is faster but less accurate. "precise" recommend.
+- sample_rate: sample rate of your audio input
+
+- voice_confidence: confidence threshold for voice activity detection (VAD)
+
+- system_seg_inerval: minimum interval between segments detected by the system
+
+- user_seg_interval: minimum interval between segments that will be returned to the user
+
+- mode: "precise" or "fast", precise mode is more accurate but slower and consumer more tokens, fast mode is faster but less accurate. "precise" recommend.
 
 ## Credits
 
