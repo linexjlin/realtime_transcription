@@ -9,7 +9,7 @@ def main():
     CHUNK = 256
     num_samples = 256
 
-    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,mode="precise")
+    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,mode="precise",user_seg_interval = 0.8)
     data = []
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT,
