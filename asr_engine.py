@@ -1,8 +1,5 @@
 import numpy as np
 import torch
-import torchaudio
-import matplotlib.pylab as plt
-#torchaudio.set_audio_backend("soundfile")
 import pyaudio
 import math
 import threading
@@ -13,7 +10,7 @@ import struct
 from transcriptions import transcription
 
 class VADSegmentRealTime:
-    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8):
+    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8, mode="precise"):
         self.model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                            model='silero_vad',
                                            force_reload=False)
@@ -24,12 +21,14 @@ class VADSegmentRealTime:
         self.segment_voice = []
         self.segment_text =""
         self.segment_duration = 0
+        self.texts = []
         self.chunk = [] #one chunk data
         self.chunks = [] # chunks of audio
         self.confidences = []
         self.events = []
         self.is_speaking = False
         self.is_silent = False
+        self.mode = mode # saving and precise saving 模式：每个小 segment 只送一次，如果不能 prompt context 效果不好，  precise 精确模式， 整段送。小段分重复送
         #self.speaking_cnt = 0
         self.continue_silent_cnt = 0
         self.v_idx = 0
@@ -69,33 +68,57 @@ class VADSegmentRealTime:
         return audio_data
 
     def parse_segment_thread(self, seg):
+        if self.mode == "saving":
+            self.wait_segments_transcripion_complete()
+        self.segments_cnt = self.segments_cnt + 1
+
+        previous_text = ""
+        if len(self.texts)> 0:
+            for i in range(1, min(4, len(self.texts) + 1)):
+                previous_text += self.texts[-i]["text"] + " "
+            previous_text = previous_text.strip()
+            
         pcm_chunks = seg["voice_chunks"]
         self.segment_voice.extend(pcm_chunks)
         self.segment_duration = self.segment_duration + seg["duration"]
 
-        # Convert bytes to int16 arrays
-        int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in self.segment_voice] # whole big segment
-        wav_data = self.pcm_to_wav(int16_chunks)
-        ret = transcription(wav_data)
-        seg["text"] = ret["text"]
-        self.segment_text = ret["text"]
-        print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
-        # print(ret)
-        # with open(f"rec_{seg['pos']['start_pos']}-{seg['pos']['end_pos']}.wav", 'wb') as f:
-        #     wav_data.seek(0)
-        #     f.write(wav_data.read())
+        print(f"{self.mode}, previous_text: {previous_text}")
+
+        if self.mode == "precise":
+            # Convert bytes to int16 arrays
+            int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in self.segment_voice] # whole big segment
+
+            wav_data = self.pcm_to_wav(int16_chunks)
+            print(f"{self.mode}, previous_text: {previous_text}")
+            ret = transcription(wav_io=wav_data,prompt=previous_text)
+            seg["text"] = ret["text"]
+            self.segment_text = ret["text"]
+            print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
+        else:
+            # Convert bytes to int16 arrays
+            int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in pcm_chunks] # whole big segment
+            wav_data = self.pcm_to_wav(int16_chunks)
+            
+            combine_temp_text = " ".join(seg["text"] for seg in self.segments)
+
+            previous_text = previous_text + combine_temp_text
+            print(f"{self.mode}, previous_text: {previous_text}")
+            ret = transcription(wav_io=wav_data,prompt=previous_text + combine_temp_text)
+            seg["text"] = ret["text"]
+            self.segment_text = ret["text"]
+            print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
+
         self.segments.append(seg)
         print("seg added")
 
     def add_new_segment(self):
         chunks = self.chunks.copy()
         pos =  {"start_pos": self.events[0]["idx"], "end_pos": self.v_idx}
-        seg = {"pos":pos, "duration":(self.v_idx-self.events[0]["idx"])*32/1000,"voice_chunks":chunks, "text":"1"}
+        seg = {"pos":pos, "duration":(self.v_idx-self.events[0]["idx"])*32/1000,"voice_chunks":chunks, "text":""}
         
         self.chunks.clear()
         self.events.clear()
 
-        self.segments_cnt = self.segments_cnt + 1
         # Create a new thread to call parse_segment_thread
         segment_thread = threading.Thread(target=self.parse_segment_thread, args=(seg,))
         segment_thread.start()
@@ -141,14 +164,27 @@ class VADSegmentRealTime:
         if voice_cnt == 0 and len(self.events) > self.system_seg: # remove 1 chunk, too long silent
             self.events.pop(0)
             self.chunks.pop(0)
-    
+
+    def wait_segments_transcripion_complete(self):
+        while self.segments_cnt > len(self.segments):
+            time.sleep(0.05)
+
     def check_talk_end(self):
          if self.continue_silent_cnt > self.user_seg:
-            while self.segments_cnt > len(self.segments):
-                time.sleep(0.05)
+            self.wait_segments_transcripion_complete()
+
             print(f"talk finish, segments count:{len(self.segments)}")
+            if self.mode == "precise":
+                text = " ".join(seg["text"] for seg in self.segments)
+            else:
+                text = self.segment_text
             #combine_texts = " ".join(seg["text"] for seg in self.segments)
-            print(f"segment text:{self.segment_text}")
+
+            print(f"segment text: {self.segment_text}")
+            start_time = self.segments[0]["pos"]["start_pos"]*32/1000
+            end_time = self.segments[-1]["pos"]["end_pos"]*32/1000
+
+            self.texts.append({"start_time":start_time, "end_time": end_time, "text": text})
 
             self.segments.clear()
             self.segment_voice.clear()
@@ -177,37 +213,3 @@ class VADSegmentRealTime:
             self.parse_events()
             self.check_talk_end()
             self.v_idx = self.v_idx + 1
-
-def main():
-    FORMAT = pyaudio.paInt16
-    SAMPLE_RATE = 8000
-    CHANNELS = 1
-    CHUNK = 256
-    num_samples = 256
-
-    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,)
-    data = []
-    audio = pyaudio.PyAudio()
-    stream = audio.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=SAMPLE_RATE,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-    
-    print("Started Recording")
-    for i in range(0, 102400):
-        audio_chunk = stream.read(num_samples)
-        #print(len(audio_chunk))
-        #print(i,len(audio_chunk))
-        # get the confidences and add them to the list to plot them later
-        data.append(audio_chunk)
-        vad.stream_add(audio_chunk)
-        # Save the recorded data to a WAV file
-    wf = wave.open("rec.wav", 'wb')
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(audio.get_sample_size(FORMAT))
-    wf.setframerate(SAMPLE_RATE)
-    wf.writeframes(b''.join(data))
-    wf.close()
-
-main()
