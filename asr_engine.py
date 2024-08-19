@@ -29,7 +29,6 @@ class VADSegmentRealTime:
         self.is_speaking = False
         self.is_silent = False
         self.mode = mode # saving and precise saving 模式：每个小 segment 只送一次，如果不能 prompt context 效果不好，  precise 精确模式， 整段送。小段分重复送
-        #self.speaking_cnt = 0
         self.continue_silent_cnt = 0
         self.v_idx = 0
         self.segments_cnt = 0
@@ -81,8 +80,6 @@ class VADSegmentRealTime:
         pcm_chunks = seg["voice_chunks"]
         self.segment_voice.extend(pcm_chunks)
         self.segment_duration = self.segment_duration + seg["duration"]
-
-        print(f"{self.mode}, previous_text: {previous_text}")
 
         if self.mode == "precise":
             # Convert bytes to int16 arrays
