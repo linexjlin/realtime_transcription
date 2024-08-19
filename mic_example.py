@@ -4,7 +4,7 @@ import wave
 
 def main():
     FORMAT = pyaudio.paInt16
-    SAMPLE_RATE = 8000
+    SAMPLE_RATE = 16000 # only 8000, 16000 support
     CHANNELS = 1
     CHUNK = 256
     num_samples = 256
