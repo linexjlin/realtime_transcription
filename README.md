@@ -11,6 +11,9 @@ You can found their API references from below links:
 - [groq](https://console.groq.com/docs/speech-text)
 
 ## Quick Run 
+** set key **
+`cp .env.example .env` edit .env set SILICONFLOW_KEY or GROQ_KEY 
+
 `python mic_example.py` 
 This will realtime transcribe your audio input from microphone to text.
 
