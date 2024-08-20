@@ -1,8 +1,19 @@
 import pyaudio
 from asr_engine import VADSegmentRealTime
-import wave 
+import wave
+import threading
+
+continue_recording = True
+
+def stop():
+    input("Press Enter to stop the recording:")
+    global continue_recording
+    continue_recording = False
 
 def main():
+    global continue_recording
+    continue_recording = True
+
     FORMAT = pyaudio.paInt16
     SAMPLE_RATE = 16000 # only 8000, 16000 support
     CHANNELS = 1
@@ -19,7 +30,9 @@ def main():
                     frames_per_buffer=CHUNK)
     
     print("Started Recording")
-    for i in range(0, 102400):
+    stop_listener = threading.Thread(target=stop)
+    stop_listener.start()
+    while continue_recording:
         audio_chunk = stream.read(num_samples)
         #print(len(audio_chunk))
         #print(i,len(audio_chunk))
@@ -27,6 +40,7 @@ def main():
         data.append(audio_chunk)
         vad.stream_add(audio_chunk)
         # Save the recorded data to a WAV file
+        
     wf = wave.open("rec.wav", 'wb')
     wf.setnchannels(CHANNELS)
     wf.setsampwidth(audio.get_sample_size(FORMAT))
