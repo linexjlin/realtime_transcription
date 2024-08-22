@@ -10,6 +10,12 @@ def stop():
     global continue_recording
     continue_recording = False
 
+def on_text_change(text):
+    print(f"on_text_change:",text)
+
+def on_seg_end(text):
+    print(f"on seg end: ",text)
+
 def main():
     global continue_recording
     continue_recording = True
@@ -20,7 +26,7 @@ def main():
     CHUNK = 256
     num_samples = 256
 
-    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,mode="precise",user_seg_interval = 0.8)
+    vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,mode="precise",user_seg_interval = 0.8,on_text_change=on_text_change,on_seg_end=on_seg_end)
     data = []
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT,

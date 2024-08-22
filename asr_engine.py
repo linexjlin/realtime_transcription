@@ -10,10 +10,12 @@ import struct
 from transcriptions import transcription
 
 class VADSegmentRealTime:
-    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.5, user_seg_interval = 0.8, mode="precise"):
+    def __init__(self, sample_rate=8000,voice_confidence=0.80,system_seg_inerval=0.3, user_seg_interval = 0.8, mode="precise", on_text_change=None, on_seg_end=None):
         self.model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                            model='silero_vad',
                                            force_reload=False)
+        self.on_text_change = on_text_change
+        self.on_seg_end = on_seg_end
         self.voice_confidence = voice_confidence
         self.sample_rate = sample_rate
         self.CHANNELS = 1
@@ -105,6 +107,8 @@ class VADSegmentRealTime:
             self.segment_text = ret["text"]
             print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
 
+        if self.on_text_change:
+            self.on_text_change(seg["text"])
         self.segments.append(seg)
         print("seg added")
 
@@ -181,6 +185,9 @@ class VADSegmentRealTime:
             start_time = self.segments[0]["pos"]["start_pos"]*32/1000
             end_time = self.segments[-1]["pos"]["end_pos"]*32/1000
 
+            if self.on_seg_end:
+                self.on_seg_end({"start_time":start_time, "end_time": end_time, "text": text})
+                
             self.texts.append({"start_time":start_time, "end_time": end_time, "text": text})
 
             self.segments.clear()
@@ -200,7 +207,9 @@ class VADSegmentRealTime:
             if confidence > self.voice_confidence:
                 event = {"event": "speaking", "idx": self.v_idx}
                 self.continue_silent_cnt = 0
+                self.is_speaking = True
             else:
+                self.is_speaking = False
                 if len(self.segments) > 0:
                     self.continue_silent_cnt = self.continue_silent_cnt + 1
                 event = {"event": "silent", "idx": self.v_idx}
@@ -210,3 +219,8 @@ class VADSegmentRealTime:
             self.parse_events()
             self.check_talk_end()
             self.v_idx = self.v_idx + 1
+
+    def is_in_speaking(self):
+        if self.is_speaking or self.segments_cnt > 0:
+            return True
+        return False
