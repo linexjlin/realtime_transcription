@@ -88,11 +88,11 @@ class VADSegmentRealTime:
             int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in self.segment_voice] # whole big segment
 
             wav_data = self.pcm_to_wav(int16_chunks)
-            print(f"{self.mode}, previous_text: {previous_text}")
+            #print(f"{self.mode}, previous_text: {previous_text}")
             ret = transcription(wav_io=wav_data,prompt=previous_text)
             seg["text"] = ret["text"]
             self.segment_text = ret["text"]
-            print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
+            #print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
         else:
             # Convert bytes to int16 arrays
             int16_chunks = [np.frombuffer(chunk, dtype=np.int16) for chunk in pcm_chunks] # whole big segment
@@ -101,16 +101,16 @@ class VADSegmentRealTime:
             combine_temp_text = " ".join(seg["text"] for seg in self.segments)
 
             previous_text = previous_text + combine_temp_text
-            print(f"{self.mode}, previous_text: {previous_text}")
+            #print(f"{self.mode}, previous_text: {previous_text}")
             ret = transcription(wav_io=wav_data,prompt=previous_text + combine_temp_text)
             seg["text"] = ret["text"]
             self.segment_text = ret["text"]
-            print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
+            #print(f"segment text:{self.segment_text} segment duration: {self.segment_duration}")
 
         if self.on_text_change:
             self.on_text_change(seg["text"])
         self.segments.append(seg)
-        print("seg added")
+        #print("seg added")
 
     def add_new_segment(self):
         chunks = self.chunks.copy()
@@ -158,7 +158,7 @@ class VADSegmentRealTime:
                 silent_cnt = silent_cnt + 1
             else:
                 if voice_cnt == 0 and silent_cnt > self.system_seg:
-                    print("found new segment")
+                    #print("found new segment")
                     return self.add_new_segment()
                 voice_cnt = voice_cnt + 1
 
@@ -174,20 +174,21 @@ class VADSegmentRealTime:
          if self.continue_silent_cnt > self.user_seg:
             self.wait_segments_transcripion_complete()
 
-            print(f"talk finish, segments count:{len(self.segments)}")
+            #print(f"talk finish, segments count:{len(self.segments)}")
             if self.mode == "precise":
-                text = " ".join(seg["text"] for seg in self.segments)
-            else:
                 text = self.segment_text
+            else:
+                text = " ".join(seg["text"] for seg in self.segments)
+                
             #combine_texts = " ".join(seg["text"] for seg in self.segments)
 
-            print(f"segment text: {self.segment_text}")
+            #print(f"segment text: {self.segment_text}")
             start_time = self.segments[0]["pos"]["start_pos"]*32/1000
             end_time = self.segments[-1]["pos"]["end_pos"]*32/1000
 
             if self.on_seg_end:
                 self.on_seg_end({"start_time":start_time, "end_time": end_time, "text": text})
-                
+
             self.texts.append({"start_time":start_time, "end_time": end_time, "text": text})
 
             self.segments.clear()

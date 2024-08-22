@@ -7,14 +7,14 @@ load_dotenv()
 
 def transcription(wav_io,prompt=""):
     if os.getenv("GROQ_KEY"):
-        print("GROQ>>>")
+        #print("GROQ>>>")
         return groq_api(wav_io,prompt)
     
     if os.getenv("SILICONFLOW_KEY"):
-        print("SILICONFLOW>>>")
-        return siliconflow_api_wav(wav_io)
-        # mp3_io = wav_to_mp3(wav_io=wav_io)
-        # return siliconflow_api(mp3_io)
+        #print("SILICONFLOW>>>")
+        #return siliconflow_api_wav(wav_io)
+        mp3_io = wav_to_mp3(wav_io=wav_io)
+        return siliconflow_api_mp3(mp3_io)
 
 
 def siliconflow_api_mp3(mp3_io, timeout=3): # mp3
