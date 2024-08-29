@@ -23,8 +23,8 @@ def main():
     FORMAT = pyaudio.paInt16
     SAMPLE_RATE = 16000 # only 8000, 16000 support
     CHANNELS = 1
-    CHUNK = 256
-    num_samples = 256
+    CHUNK = 512
+    num_samples = 512
 
     vad = VADSegmentRealTime(sample_rate=SAMPLE_RATE,mode="precise",user_seg_interval = 0.8,on_text_change=on_text_change,on_seg_end=on_seg_end)
     data = []
